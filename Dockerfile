@@ -16,6 +16,15 @@ RUN dpkg --add-architecture i386
 RUN apt-get update -qq
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y openjdk-8-jdk libc6:i386 libstdc++6:i386 libgcc1:i386 libncurses5:i386 libz1:i386
 
+# ------------------------------------------------------
+# --- download and install Kotlin compiler
+# https://github.com/JetBrains/kotlin/releases/latest
+ENV KOTLIN_VERSION 1.2.61
+RUN cd /opt && \
+    wget -q https://github.com/JetBrains/kotlin/releases/download/v${KOTLIN_VERSION}/kotlin-compiler-${KOTLIN_VERSION}.zip && \
+    unzip *kotlin*.zip && \
+    rm *kotlin*.zip
+
 
 # ------------------------------------------------------
 # --- Download Android SDK tools into $ANDROID_HOME
@@ -93,6 +102,24 @@ RUN yes | sdkmanager \
     "add-ons;addon-google_apis-google-21"
 
 # ------------------------------------------------------
+# --- Android NDK
+# download
+RUN mkdir /opt/android-ndk-tmp && \
+    cd /opt/android-ndk-tmp && \
+    wget -q https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux-x86_64.zip && \
+# uncompress
+    unzip -q android-ndk-${ANDROID_NDK_VERSION}-linux-x86_64.zip && \
+# move to its final location
+    mv ./android-ndk-${ANDROID_NDK_VERSION} ${ANDROID_NDK_HOME} && \
+# remove temp dir
+    cd ${ANDROID_NDK_HOME} && \
+    rm -rf /opt/android-ndk-tmp
+
+# add to PATH
+ENV PATH ${PATH}:${ANDROID_NDK_HOME}
+# ------------------------------------------------------
+
+# ------------------------------------------------------
 # --- Install Gradle from PPA
 
 # Gradle PPA
@@ -109,41 +136,6 @@ RUN apt-get purge maven maven2 \
  && mvn --version
 
 
-# ------------------------------------------------------
-# --- Pre-install Ionic and Cordova CLIs
-
-RUN npm install -g ionic cordova
-
-
-# ------------------------------------------------------
-# --- Install Fastlane
-
-RUN gem install fastlane --no-document \
- && fastlane --version
-
-# ------------------------------------------------------
-# --- Install Google Cloud SDK
-# https://cloud.google.com/sdk/downloads
-#  Section: apt-get (Debian and Ubuntu only)
-#
-# E.g. for "Using Firebase Test Lab for Android from the gcloud Command Line":
-#  https://firebase.google.com/docs/test-lab/command-line
-#
-
-RUN echo "deb https://packages.cloud.google.com/apt cloud-sdk-`lsb_release -c -s` main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
-RUN curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-RUN sudo apt-get update -qq \
- && sudo apt-get install -y -qq google-cloud-sdk
-
-ENV GCLOUD_SDK_CONFIG /usr/lib/google-cloud-sdk/lib/googlecloudsdk/core/config.json
-
-# gcloud config doesn't update config.json. See the official Dockerfile for details:
-#  https://github.com/GoogleCloudPlatform/cloud-sdk-docker/blob/master/Dockerfile
-RUN /usr/bin/gcloud config set --installation component_manager/disable_update_check true \
- && sed -i -- 's/\"disable_updater\": false/\"disable_updater\": true/g' $GCLOUD_SDK_CONFIG \
- && /usr/bin/gcloud config set --installation core/disable_usage_reporting true \
- && sed -i -- 's/\"disable_usage_reporting\": false/\"disable_usage_reporting\": true/g' $GCLOUD_SDK_CONFIG
-
 
 # ------------------------------------------------------
 # --- Install additional packages
@@ -152,6 +144,40 @@ RUN /usr/bin/gcloud config set --installation component_manager/disable_update_c
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y libqt5widgets5
 ENV QT_QPA_PLATFORM offscreen
 ENV LD_LIBRARY_PATH ${ANDROID_HOME}/tools/lib64:${ANDROID_HOME}/emulator/lib64:${ANDROID_HOME}/emulator/lib64/qt/lib
+
+# ------------------------------------------------------
+# --- NVM
+# replace shell with bash so we can source files
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh
+
+# update the repository sources list
+# and install dependencies
+RUN apt-get update \
+    && apt-get install -y curl \
+    && apt-get -y autoclean
+
+# nvm environment variables
+ENV NVM_DIR /usr/local/nvm
+ENV NODE_VERSION 9.4.0
+
+# install nvm
+# https://github.com/creationix/nvm#install-script
+RUN curl --silent -o- https://raw.githubusercontent.com/creationix/nvm/v0.31.2/install.sh | bash
+
+# install node and npm
+RUN source $NVM_DIR/nvm.sh \
+    && nvm install $NODE_VERSION \
+    && nvm alias default $NODE_VERSION \
+    && nvm use default
+
+# add node and npm to path so the commands are available
+ENV NODE_PATH $NVM_DIR/v$NODE_VERSION/lib/node_modules
+ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
+
+# confirm installation
+RUN node -v
+RUN npm -v
+# ------------------------------------------------------
 
 
 # ------------------------------------------------------
