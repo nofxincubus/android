@@ -87,13 +87,14 @@ RUN mkdir /opt/android-ndk-tmp && \
 ENV PATH ${PATH}:${ANDROID_NDK_HOME}
 # ------------------------------------------------------
 
-# ------------------------------------------------------
-# --- Install Gradle from PPA
-
-# Gradle PPA
-RUN apt-get update \
- && apt-get -y install gradle \
- && gradle -v
+# download and install Gradle
+# https://services.gradle.org/distributions/
+ENV GRADLE_VERSION 4.7
+RUN cd /opt && \
+    wget -q https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip && \
+    unzip gradle*.zip && \
+    ls -d */ | sed 's/\/*$//g' | xargs -I{} mv {} gradle && \
+    rm gradle*.zip
 
 # ------------------------------------------------------
 # --- Install Maven 3 from PPA
