@@ -1,6 +1,8 @@
 FROM quay.io/bitriseio/bitrise-base:alpha
 
 ENV ANDROID_HOME /opt/android-sdk-linux
+ENV ANDROID_NDK_HOME /opt/android-ndk
+ENV ANDROID_NDK_VERSION r18
 
 
 # ------------------------------------------------------
@@ -71,6 +73,7 @@ RUN yes | sdkmanager \
 
 # ------------------------------------------------------
 # --- Android NDK
+
 # download
 RUN mkdir /opt/android-ndk-tmp && \
     cd /opt/android-ndk-tmp && \
